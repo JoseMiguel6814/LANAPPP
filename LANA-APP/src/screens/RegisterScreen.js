@@ -12,42 +12,47 @@ export default function RegisterScreen({ navigation }) {
   const [contrasena, setContrasena] = useState("");
 
   const handleRegister = async () => {
-  try {
-    const response = await registrarUsuario(nombre, correo, telefono, contrasena);
+    try {
+      const response = await registrarUsuario(nombre, correo, telefono, contrasena);
 
-    // Registro exitoso: mostrar mensaje fijo
-    Alert.alert("Registro", "Usuario registrado correctamente");
+      // Si llega aquí, asumimos que fue exitoso
+      Alert.alert(
+        "Registro exitoso",
+        "Tu cuenta se ha creado correctamente",
+        [
+          {
+            text: "Ir a Login",
+            onPress: () => navigation.replace("Login") // reemplaza para no poder volver con back
+          }
+        ]
+      );
 
-  } catch (error) {
-  console.log("ERROR COMPLETO:", error);
+    } catch (error) {
+      console.log("ERROR COMPLETO:", error);
 
-  // Función para parsear mensajes de error Pydantic
-  const parseErrorMessages = (errorDetail) => {
-    if (Array.isArray(errorDetail)) {
-      return errorDetail
-        .map(err => (typeof err === 'object' && err.msg ? err.msg : JSON.stringify(err)))
-        .join('\n');
+      // Función para parsear mensajes de error Pydantic
+      const parseErrorMessages = (errorDetail) => {
+        if (Array.isArray(errorDetail)) {
+          return errorDetail
+            .map(err => (typeof err === "object" && err.msg ? err.msg : JSON.stringify(err)))
+            .join("\n");
+        }
+        if (typeof errorDetail === "string") {
+          return errorDetail;
+        }
+        return JSON.stringify(errorDetail);
+      };
+
+      const errorData = error.detail || error.mensaje || error;
+      let mensaje = "Algo salió mal en el registro. Intenta nuevamente.";
+
+      if (errorData) {
+        mensaje = parseErrorMessages(errorData);
+      }
+
+      Alert.alert("Error", mensaje);
     }
-    if (typeof errorDetail === 'string') {
-      return errorDetail;
-    }
-    return JSON.stringify(errorDetail);
   };
-
-  // Aquí extraemos detalle directamente desde error (no error.response)
-  const errorData = error.detail || error.mensaje || error;
-
-  let mensaje = "Error desconocido";
-
-  if (errorData) {
-    mensaje = parseErrorMessages(errorData);
-  }
-
-  Alert.alert("Error", mensaje);
-}
-
-};
-
 
   return (
     <View style={styles.container}>
