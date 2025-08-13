@@ -12,21 +12,16 @@ import {
   RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker as RNPicker } from "@react-native-picker/picker";
 import { VictoryPie } from "victory-native";
 
 import { obtenerTransacciones, eliminarTransaccion } from "../api/transaccionesApi";
-import { obtenerGraficaPorCategoria } from "../api/graficaApi"; // tu archivo actual
-import { obtenerCategorias } from "../api/categoriasApi";
-import {
-  upsertPresupuestoMensual,
-  verificarExcesoPresupuesto,
-} from "../api/presupuestosApi";
+import { obtenerGraficaPorCategoria } from "../api/graficaApi";
+import { verificarExcesoPresupuesto } from "../api/presupuestosApi";
 
 const STORAGE_SALDO_KEY = "@lanaapp_saldo_disponible";
 
 export default function HomeScreen({ navigation }) {
-  const usuarioId = 1; // 🔹 TODO: usar el ID real del login
+  const usuarioId = 1; // TODO: cambiar por el ID real del login
   const [transacciones, setTransacciones] = useState([]);
   const [saldoDisponible, setSaldoDisponible] = useState(0);
   const [modalSaldoVisible, setModalSaldoVisible] = useState(false);
@@ -35,15 +30,9 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [resumen, setResumen] = useState({ ingresos: 0, egresos: 0 });
   const [graficosData, setGraficosData] = useState({ ingresos: [], egresos: [] });
-
-  // Presupuestos
-  const [modalPresuVisible, setModalPresuVisible] = useState(false);
-  const [categorias, setCategorias] = useState([]);
-  const [categoriaSel, setCategoriaSel] = useState(null);
-  const [montoPresu, setMontoPresu] = useState("");
   const [alertasPresu, setAlertasPresu] = useState([]);
 
-  // 📌 Cargar saldo guardado en AsyncStorage
+  // 📌 Cargar saldo
   const cargarSaldo = useCallback(async () => {
     try {
       const s = await AsyncStorage.getItem(STORAGE_SALDO_KEY);
@@ -78,11 +67,9 @@ export default function HomeScreen({ navigation }) {
     try {
       setLoading(true);
 
-      // Transacciones
       const dataTransacciones = await obtenerTransacciones();
       setTransacciones(dataTransacciones);
 
-      // Resumen
       let ingresos = 0;
       let egresos = 0;
       dataTransacciones.forEach(({ monto, tipo }) => {
@@ -91,26 +78,16 @@ export default function HomeScreen({ navigation }) {
       });
       setResumen({ ingresos, egresos });
 
-      // Gráfica por categoría (API)
       const dataGraficas = await obtenerGraficaPorCategoria(usuarioId);
       setGraficosData(dataGraficas);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "No se pudieron cargar los datos");
     } finally {
       setLoading(false);
     }
   }, [usuarioId]);
 
-  // 📌 Cargar categorías (para el modal de presupuesto)
-  const cargarCategorias = useCallback(async () => {
-    try {
-      const cats = await obtenerCategorias();
-      setCategorias(cats);
-      if (cats.length > 0) setCategoriaSel(cats[0].id);
-    } catch {}
-  }, []);
-
-  // 📌 Alertas de presupuesto excedido
+  // 📌 Alertas de presupuesto
   const cargarAlertasPresupuesto = useCallback(async () => {
     try {
       const res = await verificarExcesoPresupuesto(usuarioId);
@@ -148,11 +125,10 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     cargarSaldo();
     cargarDatos();
-    cargarCategorias();
     cargarAlertasPresupuesto();
-  }, [cargarSaldo, cargarDatos, cargarCategorias, cargarAlertasPresupuesto]);
+  }, [cargarSaldo, cargarDatos, cargarAlertasPresupuesto]);
 
-  // 📌 Datos para gráfica (solo egresos)
+  // 📌 Datos para gráfica
   const dataPie = graficosData.egresos.map((item) => ({
     x: item.categoria.length > 14 ? item.categoria.slice(0, 12) + "…" : item.categoria,
     y: item.total,
@@ -176,20 +152,18 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.header}>
               <Text style={styles.title}>Hola, bienvenido a Lana App</Text>
               <Text style={styles.saldoLabel}>Saldo total disponible</Text>
-
               <View style={styles.saldoRow}>
                 <Text style={styles.saldoTotal}>${saldoMostrado.toFixed(2)}</Text>
                 <TouchableOpacity style={styles.btnEditarSaldo} onPress={abrirModalSaldo}>
                   <Text style={styles.btnEditarSaldoText}>Editar saldo</Text>
                 </TouchableOpacity>
               </View>
-
               <Text style={styles.saldoHint}>
                 *Si no editas el saldo, se muestra (Ingresos − Egresos)
               </Text>
             </View>
 
-            {/* Resumen ingresos/egresos */}
+            {/* Resumen */}
             <View style={styles.resumenContainer}>
               <View style={[styles.resumenBox, { backgroundColor: "#1e7e34" }]}>
                 <Text style={styles.resumenLabel}>Ingresos</Text>
@@ -201,14 +175,13 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
 
-            {/* Alertas de presupuesto */}
+            {/* Alertas */}
             {alertasPresu.length > 0 && (
               <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: "#c82333" }]}>
                 <Text style={styles.subTitle}>⚠️ Presupuestos excedidos</Text>
                 {alertasPresu.map((a, i) => (
                   <Text key={i} style={{ color: "#eee", marginTop: 4 }}>
-                    • {a.categoria}: gastado ${a.gastado.toFixed(2)} / límite $
-                    {a.presupuesto.toFixed(2)} (exceso ${a.exceso.toFixed(2)})
+                    • {a.categoria}: gastado ${a.gastado.toFixed(2)} / límite ${a.presupuesto.toFixed(2)}
                   </Text>
                 ))}
               </View>
@@ -243,12 +216,8 @@ export default function HomeScreen({ navigation }) {
               >
                 {item.tipo === "ingreso" ? "+" : "-"}${Number(item.monto).toFixed(2)}
               </Text>
-              <Text style={styles.descripcion}>
-                {item.descripcion || "Sin descripción"}
-              </Text>
-              <Text style={styles.fecha}>
-                {new Date(item.fecha).toLocaleDateString()}
-              </Text>
+              <Text style={styles.descripcion}>{item.descripcion || "Sin descripción"}</Text>
+              <Text style={styles.fecha}>{new Date(item.fecha).toLocaleDateString()}</Text>
             </View>
             <View style={styles.transaccionAcciones}>
               <TouchableOpacity
@@ -274,13 +243,12 @@ export default function HomeScreen({ navigation }) {
             >
               <Text style={styles.textoBotonAgregar}>+ Nueva transacción</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={{
                 backgroundColor: "#28a745",
                 padding: 12,
                 borderRadius: 8,
-                marginBottom: 12,
+                marginBottom: 40,
               }}
               onPress={() => navigation.navigate("CrearCategoria")}
             >
@@ -288,25 +256,11 @@ export default function HomeScreen({ navigation }) {
                 + Crear Categoría
               </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: "#9159c1",
-                padding: 12,
-                borderRadius: 8,
-                marginBottom: 40,
-              }}
-              onPress={() => setModalPresuVisible(true)}
-            >
-              <Text style={{ color: "#fff", textAlign: "center", fontWeight: "bold" }}>
-                ⚙️ Configurar presupuesto
-              </Text>
-            </TouchableOpacity>
           </>
         }
       />
 
-      {/* Modal para editar saldo */}
+      {/* Modal saldo */}
       <Modal
         transparent
         visible={modalSaldoVisible}
@@ -334,81 +288,6 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnOk]}
                 onPress={confirmarSaldo}
-              >
-                <Text style={styles.modalBtnText}>Guardar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal para presupuesto por categoría */}
-      <Modal
-        transparent
-        visible={modalPresuVisible}
-        animationType="fade"
-        onRequestClose={() => setModalPresuVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Presupuesto mensual por categoría</Text>
-
-            <View style={{ backgroundColor: "#2a2a2a", borderRadius: 8, marginBottom: 10 }}>
-              <RNPicker
-                selectedValue={categoriaSel}
-                onValueChange={setCategoriaSel}
-                style={{ color: "#fff" }}
-              >
-                {categorias.map((c) => (
-                  <RNPicker.Item key={c.id} label={c.nombre} value={c.id} />
-                ))}
-              </RNPicker>
-            </View>
-
-            <TextInput
-              style={styles.inputSaldo}
-              keyboardType="decimal-pad"
-              placeholder="Monto límite mensual"
-              placeholderTextColor="#777"
-              value={montoPresu}
-              onChangeText={setMontoPresu}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => setModalPresuVisible(false)}
-              >
-                <Text style={styles.modalBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnOk]}
-                onPress={async () => {
-                  const n = Number(montoPresu);
-                  if (!categoriaSel || Number.isNaN(n)) {
-                    Alert.alert("Datos inválidos", "Elige categoría y un monto válido.");
-                    return;
-                  }
-                  const now = new Date();
-                  const mes = now.getMonth() + 1;
-                  const anio = now.getFullYear();
-
-                  try {
-                    await upsertPresupuestoMensual({
-                      usuario_id: usuarioId,
-                      categoria_id: categoriaSel,
-                      monto: n,
-                      mes,
-                      anio,
-                    });
-                    setModalPresuVisible(false);
-                    setMontoPresu("");
-                    Alert.alert("Presupuesto", "Presupuesto guardado correctamente.");
-                    cargarAlertasPresupuesto();
-                  } catch (e) {
-                    Alert.alert("Error", e?.detail || "No fue posible guardar el presupuesto.");
-                  }
-                }}
               >
                 <Text style={styles.modalBtnText}>Guardar</Text>
               </TouchableOpacity>
@@ -465,7 +344,6 @@ const styles = StyleSheet.create({
   botonAgregar: { backgroundColor: "#0af", borderRadius: 30, paddingVertical: 15, marginBottom: 12 },
   textoBotonAgregar: { color: "#fff", textAlign: "center", fontWeight: "bold", fontSize: 18 },
 
-  // Modal base
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" },
   modalCard: { width: "88%", backgroundColor: "#1f1f1f", borderRadius: 12, padding: 16 },
   modalTitle: { color: "#fff", fontSize: 18, fontWeight: "bold", marginBottom: 12, textAlign: "center" },
