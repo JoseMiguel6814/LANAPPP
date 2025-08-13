@@ -1,73 +1,51 @@
-// 📂 src/api/presupuestosApi.js
+// 📂 src/api/presupuestoApi.js
 const API_URL = "https://api-lana-production.up.railway.app";
 
-// Lista todos (si prefieres agregar endpoint /presupuestos/usuario/{id}, luego cambiamos aquí)
-export const obtenerPresupuestos = async () => {
-  const r = await fetch(`${API_URL}/presupuestos`);
-  if (!r.ok) throw await r.json();
-  return r.json();
-};
+/**
+ * Guarda o actualiza el presupuesto de un usuario.
+ * @param {number|string} usuarioId - ID del usuario
+ * @param {number} monto - Monto del presupuesto
+ * @returns {Promise<Object>} - Respuesta de la API
+ */
+export const guardarPresupuesto = async (usuarioId, monto) => {
+  try {
+    const response = await fetch(`${API_URL}/presupuesto/${usuarioId}`, {
+      method: "POST", // O "PUT" según tu backend
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ monto }),
+    });
 
-export const crearPresupuesto = async (payload) => {
-  const r = await fetch(`${API_URL}/presupuestos`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) throw await r.json();
-  return r.json();
-};
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw errorData;
+    }
 
-export const actualizarPresupuesto = async (id, payload) => {
-  const r = await fetch(`${API_URL}/presupuestos/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) throw await r.json();
-  return r.json();
-};
-
-export const verificarExcesoPresupuesto = async (usuarioId) => {
-  const r = await fetch(`${API_URL}/presupuesto-alerta/${usuarioId}`);
-  if (!r.ok) throw await r.json();
-  return r.json();
+    return await response.json();
+  } catch (error) {
+    console.error("Error al guardar presupuesto:", error);
+    throw error;
+  }
 };
 
 /**
- * UPSERT de presupuesto mensual por (usuario, categoría, mes, año)
- * - Si existe → PUT
- * - Si no → POST
+ * Obtiene el presupuesto de un usuario.
+ * @param {number|string} usuarioId - ID del usuario
+ * @returns {Promise<{monto: number}>}
  */
-export const upsertPresupuestoMensual = async ({
-  usuario_id,
-  categoria_id,
-  monto,         // límite mensual que quieres establecer
-  mes,
-  anio,
-}) => {
-  // 1) Trae todos y busca si existe uno para este usuario/categoría/mes/año
-  const todos = await obtenerPresupuestos();
-  const existente = todos.find(
-    p =>
-      Number(p.usuario_id) === Number(usuario_id) &&
-      Number(p.categoria_id) === Number(categoria_id) &&
-      Number(p.mes) === Number(mes) &&
-      Number(p.anio) === Number(anio)
-  );
+export const obtenerPresupuesto = async (usuarioId) => {
+  try {
+    const response = await fetch(`${API_URL}/presupuesto/${usuarioId}`);
 
-  const base = {
-    usuario_id,
-    categoria_id,
-    mes,
-    anio,
-    monto,
-    monto_actual: existente ? existente.monto_actual ?? 0 : 0, // conservamos acumulado si hay
-  };
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw errorData;
+    }
 
-  if (existente) {
-    return actualizarPresupuesto(existente.id, base);
-  } else {
-    return crearPresupuesto(base);
+    return await response.json();
+  } catch (error) {
+    console.error("Error al obtener presupuesto:", error);
+    throw error;
   }
 };

@@ -1,132 +1,150 @@
-import React, { useState, useEffect } from "react";
+// 📂 src/screens/EditarTransaccion.js
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "react-native";
-import { obtenerTransaccionPorId, actualizarTransaccion } from "../api/transaccionesApi";
+import { Picker as RNPicker } from "@react-native-picker/picker";
+import { obtenerTransaccionPorId, actualizarTransaccion, eliminarTransaccion } from "../api/transaccionesApi";
+import { obtenerCategorias } from "../api/categoriasApi";
 
 export default function EditarTransaccion({ route, navigation }) {
-  const { id } = route.params;
-  const [monto, setMonto] = useState("");
-  const [tipo, setTipo] = useState("ingreso");
-  const [descripcion, setDescripcion] = useState("");
-  const [categoriaId, setCategoriaId] = useState("");
-  const [cuentaId, setCuentaId] = useState("");
-  const [usuarioId, setUsuarioId] = useState("");
-  const [fecha, setFecha] = useState(new Date().toISOString());
+  const { id } = route.params || {};
+  const usuarioId = 1; // TODO: sustituir con login real
 
-  useEffect(() => {
-    async function cargarDatos() {
-      try {
-        const data = await obtenerTransaccionPorId(id);
-        setMonto(data.monto.toString());
-        setTipo(data.tipo);
-        setDescripcion(data.descripcion || "");
-        setCategoriaId(data.categoria_id ? data.categoria_id.toString() : "");
-        setCuentaId(data.cuenta_id ? data.cuenta_id.toString() : "");
-        setUsuarioId(data.usuario_id ? data.usuario_id.toString() : "");
-        setFecha(data.fecha);
-      } catch (error) {
-        Alert.alert("Error", "No se pudo cargar la transacción");
-        navigation.goBack();
-      }
+  const [categorias, setCategorias] = useState([]);
+  const [categoriaId, setCategoriaId] = useState(null);
+  const [monto, setMonto] = useState("");
+  const [tipo, setTipo] = useState("egreso");
+  const [descripcion, setDescripcion] = useState("");
+
+  const cargarCategorias = useCallback(async () => {
+    try {
+      const cats = await obtenerCategorias();
+      setCategorias(cats);
+    } catch {}
+  }, []);
+
+  const cargarTransaccion = useCallback(async () => {
+    if (!id) return;
+    try {
+      const t = await obtenerTransaccionPorId(id);
+      setCategoriaId(t.categoria_id ?? null);
+      setMonto(String(t.monto ?? ""));
+      setTipo(t.tipo ?? "egreso");
+      setDescripcion(t.descripcion ?? "");
+    } catch (e) {
+      Alert.alert("Error", e?.message || e?.detail || "No se pudo cargar la transacción.");
     }
-    cargarDatos();
   }, [id]);
 
-  const handleActualizar = async () => {
-    if (!monto || !tipo) {
-      Alert.alert("Error", "Por favor llena monto y tipo");
+  useEffect(() => {
+    cargarCategorias();
+    cargarTransaccion();
+  }, [cargarCategorias, cargarTransaccion]);
+
+  const onGuardar = async () => {
+    const nMonto = Number(monto);
+    if (!categoriaId || Number.isNaN(nMonto) || !tipo) {
+      Alert.alert("Campos requeridos", "Selecciona categoría, tipo y un monto válido.");
       return;
     }
-
     try {
       await actualizarTransaccion(id, {
-        monto: parseFloat(monto),
+        usuario_id: usuarioId,
+        cuenta_id: null,
+        categoria_id: categoriaId,
+        monto: nMonto,
         tipo,
         descripcion,
-        categoria_id: parseInt(categoriaId) || null,
-        cuenta_id: parseInt(cuentaId) || null,
-        usuario_id: parseInt(usuarioId) || null,
-        fecha,
       });
-      Alert.alert("Éxito", "Transacción actualizada");
+      Alert.alert("Éxito", "Transacción actualizada.");
       navigation.goBack();
-    } catch (error) {
-      Alert.alert("Error", "No se pudo actualizar la transacción");
+    } catch (e) {
+      Alert.alert("Error", e?.message || e?.detail || "No se pudo actualizar la transacción.");
     }
+  };
+
+  const onEliminar = () => {
+    Alert.alert("Confirmar", "¿Eliminar esta transacción?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Eliminar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await eliminarTransaccion(id);
+            Alert.alert("Éxito", "Transacción eliminada.");
+            navigation.goBack();
+          } catch (e) {
+            Alert.alert("Error", e?.message || e?.detail || "No se pudo eliminar la transacción.");
+          }
+        },
+      },
+    ]);
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Editar Transacción</Text>
+      <Text style={styles.label}>Categoría</Text>
+      <View style={styles.pickerBox}>
+        <RNPicker selectedValue={categoriaId} onValueChange={setCategoriaId} style={styles.picker}>
+          {categorias.map((c) => (
+            <RNPicker.Item key={c.id} label={`${c.nombre} (${c.tipo})`} value={c.id} />
+          ))}
+        </RNPicker>
+      </View>
+
+      <Text style={styles.label}>Tipo</Text>
+      <View style={styles.pickerBox}>
+        <RNPicker selectedValue={tipo} onValueChange={setTipo} style={styles.picker}>
+          <RNPicker.Item label="Egreso" value="egreso" />
+          <RNPicker.Item label="Ingreso" value="ingreso" />
+        </RNPicker>
+      </View>
+
+      <Text style={styles.label}>Monto</Text>
       <TextInput
         style={styles.input}
-        placeholder="Monto"
-        keyboardType="numeric"
+        placeholder="0.00"
+        keyboardType="decimal-pad"
         value={monto}
         onChangeText={setMonto}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Tipo (ingreso/egreso)"
-        value={tipo}
-        onChangeText={setTipo}
-      />
+
+      <Text style={styles.label}>Descripción (opcional)</Text>
       <TextInput
         style={styles.input}
         placeholder="Descripción"
         value={descripcion}
         onChangeText={setDescripcion}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="ID Categoría"
-        keyboardType="numeric"
-        value={categoriaId}
-        onChangeText={setCategoriaId}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="ID Cuenta"
-        keyboardType="numeric"
-        value={cuentaId}
-        onChangeText={setCuentaId}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="ID Usuario"
-        keyboardType="numeric"
-        value={usuarioId}
-        onChangeText={setUsuarioId}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Fecha (YYYY-MM-DD)"
-        value={fecha.substring(0, 10)}
-        onChangeText={(text) => setFecha(text + "T00:00:00.000Z")}
-      />
 
-      <TouchableOpacity style={styles.button} onPress={handleActualizar}>
-        <Text style={styles.buttonText}>Actualizar</Text>
+      <TouchableOpacity style={styles.button} onPress={onGuardar}>
+        <Text style={styles.buttonText}>Guardar cambios</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.button, { backgroundColor: "#c82333" }]} onPress={onEliminar}>
+        <Text style={styles.buttonText}>Eliminar</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#121212", padding: 20, justifyContent: "center" },
-  title: { fontSize: 26, color: "#fff", fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  container: { flex: 1, backgroundColor: "#121212", padding: 16 },
+  label: { color: "#ccc", marginTop: 12, marginBottom: 6 },
   input: {
     backgroundColor: "#0a1f44",
     color: "#fff",
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
     borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
+  pickerBox: { backgroundColor: "#0a1f44", borderRadius: 8 },
+  picker: { color: "#fff" },
   button: {
     backgroundColor: "#0af",
-    paddingVertical: 15,
     borderRadius: 10,
-    marginTop: 10,
+    paddingVertical: 14,
+    marginTop: 24,
   },
-  buttonText: { color: "#fff", fontWeight: "bold", textAlign: "center", fontSize: 18 },
+  buttonText: { color: "#fff", textAlign: "center", fontWeight: "bold", fontSize: 16 },
 });

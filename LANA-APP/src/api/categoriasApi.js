@@ -1,7 +1,63 @@
 // 📂 src/api/categoriasApi.js
-const API_URL = "https://api-lana-production.up.railway.app";
+const API_ORIGIN = "https://api-lana-production.up.railway.app"; // <-- tu host
+const API_PREFIX = ""; // ej. "/api" si en main.py usaste include_router(..., prefix="/api")
+const API_URL = `${API_ORIGIN}${API_PREFIX}`;
 
-// Helper para armar query strings
+// (Opcional) headers con token
+const authHeaders = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
+
+// Formatea errores de FastAPI (string | {detail} | [{loc,msg,type}])
+const toNiceMessage = (payload, r) => {
+  if (!payload) return `Error ${r.status} ${r.statusText}`;
+  if (typeof payload === "string") return payload;
+
+  if (payload.detail) {
+    if (typeof payload.detail === "string") return payload.detail;
+    if (Array.isArray(payload.detail)) {
+      return payload.detail
+        .map((e, i) => {
+          const where = Array.isArray(e.loc) ? e.loc.join(".") : e.loc;
+          return `${i + 1}. ${where}: ${e.msg}`;
+        })
+        .join("\n");
+    }
+  }
+
+  if (Array.isArray(payload)) {
+    return payload
+      .map((e, i) => {
+        const where = Array.isArray(e.loc) ? e.loc.join(".") : e.loc;
+        return `${i + 1}. ${where}: ${e.msg || JSON.stringify(e)}`;
+      })
+      .join("\n");
+  }
+
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return `Error ${r.status} ${r.statusText}`;
+  }
+};
+
+// Helper robusto de fetch
+const fetchJson = async (input, init) => {
+  const r = await fetch(input, init);
+  if (!r.ok) {
+    let payload;
+    try {
+      payload = await r.json();
+    } catch {
+      payload = await r.text();
+    }
+    const e = new Error(toNiceMessage(payload, r));
+    e.status = r.status;
+    e.payload = payload;
+    throw e;
+  }
+  return r.json();
+};
+
+// Helper query
 const withQuery = (base, params = {}) => {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
@@ -11,69 +67,61 @@ const withQuery = (base, params = {}) => {
   return qs ? `${base}?${qs}` : base;
 };
 
-// 🔹 Listar categorías (con filtros opcionales: { usuario_id, tipo })
-export const listarCategorias = async (filtros = {}) => {
-  const url = withQuery(`${API_URL}/categorias`, filtros);
-  const r = await fetch(url);
-  if (!r.ok) throw await r.json();
-  return r.json();
+const safeNumber = (v) => (v !== "" && v != null ? Number(v) : undefined);
+
+// 🔹 Listar categorías (filtros: tipo; soporta usuario_id si decides usarlo)
+export const listarCategorias = async (filtros = {}, token) => {
+  const url = withQuery(`${API_URL}/categorias`, {
+    usuario_id: filtros.usuario_id, // puedes quitarlo del UI si no lo usas
+    tipo: filtros.tipo, // "ingreso" | "egreso"
+  });
+  return fetchJson(url, { headers: { ...authHeaders(token) } });
 };
 
-// (Alias cómodo) Obtener todas sin filtros
-export const obtenerCategorias = async () => listarCategorias();
+// Alias
+export const obtenerCategorias = async (token) => listarCategorias({}, token);
 
 // 🔹 Obtener categoría por ID
-export const obtenerCategoriaPorId = async (id) => {
-  const r = await fetch(`${API_URL}/categorias/${id}`);
-  if (!r.ok) throw await r.json();
-  return r.json();
-};
+export const obtenerCategoriaPorId = async (id, token) =>
+  fetchJson(`${API_URL}/categorias/${id}`, { headers: { ...authHeaders(token) } });
 
-// 🔹 Crear categoría
-// IMPORTANTE: tu backend exige "tipo". Si no lo mandas, ponemos "egreso" por defecto.
-export const crearCategoria = async (categoria = {}) => {
+// 🔹 Crear categoría (solo lo que el usuario conoce)
+export const crearCategoria = async (categoria = {}, token) => {
   const payload = {
     nombre: categoria.nombre?.trim(),
-    tipo: categoria.tipo ?? "egreso",               // default para que no truene
-    usuario_id: categoria.usuario_id ?? null,       // opcional
-    categoria_padre_id: categoria.categoria_padre_id ?? null, // opcional
-    es_sistema: categoria.es_sistema ?? false,      // opcional
+    tipo: (categoria.tipo || "egreso").toLowerCase(),
+    ...(safeNumber(categoria.categoria_padre_id) !== undefined && {
+      categoria_padre_id: safeNumber(categoria.categoria_padre_id),
+    }),
   };
 
-  const r = await fetch(`${API_URL}/categorias`, {
+  return fetchJson(`${API_URL}/categorias`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw await r.json();
-  return r.json();
 };
 
-// 🔹 Actualizar categoría
-export const actualizarCategoria = async (id, categoria = {}) => {
+// 🔹 Actualizar categoría (parcial)
+export const actualizarCategoria = async (id, categoria = {}, token) => {
   const payload = {
-    // mandamos solo lo que tengas; tu backend ignora None si no quieres cambiar algo
-    id,
-    nombre: categoria.nombre?.trim() ?? null,
-    tipo: categoria.tipo ?? null,
-    usuario_id: categoria.usuario_id ?? null,
-    categoria_padre_id: categoria.categoria_padre_id ?? null,
-    es_sistema: categoria.es_sistema ?? null,
-    creado_en: categoria.creado_en ?? null, // el schema lo trae opcional; no afecta
+    ...(categoria.nombre != null && { nombre: categoria.nombre.trim() }),
+    ...(categoria.tipo != null && { tipo: String(categoria.tipo).toLowerCase() }),
+    ...(safeNumber(categoria.categoria_padre_id) !== undefined && {
+      categoria_padre_id: safeNumber(categoria.categoria_padre_id),
+    }),
   };
 
-  const r = await fetch(`${API_URL}/categorias/${id}`, {
+  return fetchJson(`${API_URL}/categorias/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw await r.json();
-  return r.json();
 };
 
 // 🔹 Eliminar categoría
-export const eliminarCategoria = async (id) => {
-  const r = await fetch(`${API_URL}/categorias/${id}`, { method: "DELETE" });
-  if (!r.ok) throw await r.json();
-  return r.json();
-};
+export const eliminarCategoria = async (id, token) =>
+  fetchJson(`${API_URL}/categorias/${id}`, {
+    method: "DELETE",
+    headers: { ...authHeaders(token) },
+  });

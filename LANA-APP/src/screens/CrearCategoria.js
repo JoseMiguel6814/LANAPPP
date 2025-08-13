@@ -8,7 +8,6 @@ import {
   Alert,
   StyleSheet,
   FlatList,
-  Switch,
 } from "react-native";
 import { Picker as RNPicker } from "@react-native-picker/picker";
 import {
@@ -26,12 +25,9 @@ export default function CrudCategoriasScreen() {
   const [id, setId] = useState("");
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState("egreso");
-  const [usuarioId, setUsuarioId] = useState("");
   const [categoriaPadreId, setCategoriaPadreId] = useState("");
-  const [esSistema, setEsSistema] = useState(false);
 
-  // Listado / filtros
-  const [filtroUsuarioId, setFiltroUsuarioId] = useState("");
+  // Listado / filtros (solo tipo)
   const [filtroTipo, setFiltroTipo] = useState("");
   const [lista, setLista] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -40,10 +36,10 @@ export default function CrudCategoriasScreen() {
     setId("");
     setNombre("");
     setTipo("egreso");
-    setUsuarioId("");
     setCategoriaPadreId("");
-    setEsSistema(false);
   };
+
+  const safeNumber = (v) => (v !== "" && v != null ? Number(v) : undefined);
 
   // ------ Crear ------
   const handleCrear = async () => {
@@ -52,18 +48,16 @@ export default function CrudCategoriasScreen() {
       return;
     }
     try {
-      const payload = {
+      await crearCategoria({
         nombre: nombre.trim(),
-        tipo,
-        usuario_id: usuarioId ? Number(usuarioId) : null,
-        categoria_padre_id: categoriaPadreId ? Number(categoriaPadreId) : null,
-        es_sistema: esSistema,
-      };
-      await crearCategoria(payload);
+        tipo: String(tipo).toLowerCase(),
+        categoria_padre_id: safeNumber(categoriaPadreId),
+      });
       Alert.alert("Éxito", "Categoría creada correctamente.");
       limpiarCampos();
+      if (modo === "listar") handleListar(); // refresca si estás en listar
     } catch (e) {
-      Alert.alert("Error", e?.detail || "No se pudo crear la categoría.");
+      Alert.alert("Error", e?.message || "No se pudo crear la categoría.");
     }
   };
 
@@ -72,13 +66,12 @@ export default function CrudCategoriasScreen() {
     try {
       setCargando(true);
       const filtros = {
-        usuario_id: filtroUsuarioId || undefined,
-        tipo: filtroTipo || undefined,
+        tipo: filtroTipo || undefined, // "ingreso" | "egreso"
       };
       const data = await listarCategorias(filtros);
       setLista(data);
     } catch (e) {
-      Alert.alert("Error", e?.detail || "No se pudieron listar las categorías.");
+      Alert.alert("Error", e?.message || "No se pudieron listar las categorías.");
     } finally {
       setCargando(false);
     }
@@ -94,12 +87,10 @@ export default function CrudCategoriasScreen() {
       const c = await obtenerCategoriaPorId(Number(id));
       setNombre(c.nombre || "");
       setTipo((c.tipo || "egreso").toLowerCase());
-      setUsuarioId(c.usuario_id ? String(c.usuario_id) : "");
       setCategoriaPadreId(c.categoria_padre_id ? String(c.categoria_padre_id) : "");
-      setEsSistema(Boolean(c.es_sistema));
       Alert.alert("Listo", "Datos cargados. Edita y guarda.");
     } catch (e) {
-      Alert.alert("Error", e?.detail || "No se pudo cargar la categoría.");
+      Alert.alert("Error", e?.message || "No se pudo cargar la categoría.");
     }
   };
 
@@ -114,18 +105,16 @@ export default function CrudCategoriasScreen() {
       return;
     }
     try {
-      const payload = {
+      await actualizarCategoria(Number(id), {
         nombre: nombre.trim(),
-        tipo,
-        usuario_id: usuarioId ? Number(usuarioId) : null,
-        categoria_padre_id: categoriaPadreId ? Number(categoriaPadreId) : null,
-        es_sistema: esSistema,
-      };
-      await actualizarCategoria(Number(id), payload);
+        tipo: String(tipo).toLowerCase(),
+        categoria_padre_id: safeNumber(categoriaPadreId),
+      });
       Alert.alert("Éxito", "Categoría actualizada.");
       limpiarCampos();
+      if (modo === "listar") handleListar();
     } catch (e) {
-      Alert.alert("Error", e?.detail || "No se pudo actualizar la categoría.");
+      Alert.alert("Error", e?.message || "No se pudo actualizar la categoría.");
     }
   };
 
@@ -139,16 +128,15 @@ export default function CrudCategoriasScreen() {
       await eliminarCategoria(Number(id));
       Alert.alert("Éxito", "Categoría eliminada.");
       setId("");
+      if (modo === "listar") handleListar();
     } catch (e) {
-      Alert.alert("Error", e?.detail || "No se pudo eliminar la categoría.");
+      Alert.alert("Error", e?.message || "No se pudo eliminar la categoría.");
     }
   };
 
   const Tab = ({ value, label }) => (
     <TouchableOpacity
-      onPress={() => {
-        setModo(value);
-      }}
+      onPress={() => setModo(value)}
       style={[styles.tab, modo === value && styles.tabActive]}
     >
       <Text style={[styles.tabText, modo === value && styles.tabTextActive]}>{label}</Text>
@@ -182,15 +170,6 @@ export default function CrudCategoriasScreen() {
             <RNPicker.Item label="Ingreso" value="ingreso" />
           </RNPicker>
 
-          <Text style={styles.label}>Usuario ID (opcional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ej. 1"
-            keyboardType="numeric"
-            value={usuarioId}
-            onChangeText={setUsuarioId}
-          />
-
           <Text style={styles.label}>Categoría padre ID (opcional)</Text>
           <TextInput
             style={styles.input}
@@ -200,13 +179,8 @@ export default function CrudCategoriasScreen() {
             onChangeText={setCategoriaPadreId}
           />
 
-          <View style={styles.row}>
-            <Text style={styles.labelInline}>¿Es del sistema?</Text>
-            <Switch value={esSistema} onValueChange={setEsSistema} />
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleCrear}>
-            <Text style={styles.buttonText}>Crear</Text>
+          <TouchableOpacity style={styles.button} onPress={handleCrear} disabled={cargando}>
+            <Text style={styles.buttonText}>{cargando ? "Procesando…" : "Crear"}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -214,15 +188,6 @@ export default function CrudCategoriasScreen() {
       {/* Listar */}
       {modo === "listar" && (
         <View>
-          <Text style={styles.label}>Filtro usuario_id (opcional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ej. 1"
-            keyboardType="numeric"
-            value={filtroUsuarioId}
-            onChangeText={setFiltroUsuarioId}
-          />
-
           <Text style={styles.label}>Filtro tipo (opcional)</Text>
           <RNPicker
             selectedValue={filtroTipo}
@@ -234,7 +199,7 @@ export default function CrudCategoriasScreen() {
             <RNPicker.Item label="Ingreso" value="ingreso" />
           </RNPicker>
 
-          <TouchableOpacity style={styles.button} onPress={handleListar}>
+          <TouchableOpacity style={styles.button} onPress={handleListar} disabled={cargando}>
             <Text style={styles.buttonText}>{cargando ? "Cargando…" : "Listar"}</Text>
           </TouchableOpacity>
 
@@ -250,8 +215,7 @@ export default function CrudCategoriasScreen() {
                       #{item.id} • {item.nombre} ({item.tipo})
                     </Text>
                     <Text style={styles.itemSub}>
-                      usuario_id: {item.usuario_id ?? "—"} • padre: {item.categoria_padre_id ?? "—"} • sistema:{" "}
-                      {item.es_sistema ? "sí" : "no"}
+                      padre: {item.categoria_padre_id ?? "—"}
                     </Text>
                   </View>
                 )}
@@ -273,7 +237,7 @@ export default function CrudCategoriasScreen() {
             onChangeText={setId}
           />
 
-          <TouchableOpacity style={styles.buttonGhost} onPress={cargarParaEditar}>
+          <TouchableOpacity style={styles.buttonGhost} onPress={cargarParaEditar} disabled={cargando}>
             <Text style={styles.buttonGhostText}>Cargar datos</Text>
           </TouchableOpacity>
 
@@ -291,15 +255,6 @@ export default function CrudCategoriasScreen() {
             <RNPicker.Item label="Ingreso" value="ingreso" />
           </RNPicker>
 
-          <Text style={styles.label}>Usuario ID (opcional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ej. 1"
-            keyboardType="numeric"
-            value={usuarioId}
-            onChangeText={setUsuarioId}
-          />
-
           <Text style={styles.label}>Categoría padre ID (opcional)</Text>
           <TextInput
             style={styles.input}
@@ -309,13 +264,8 @@ export default function CrudCategoriasScreen() {
             onChangeText={setCategoriaPadreId}
           />
 
-          <View style={styles.row}>
-            <Text style={styles.labelInline}>¿Es del sistema?</Text>
-            <Switch value={esSistema} onValueChange={setEsSistema} />
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleEditar}>
-            <Text style={styles.buttonText}>Guardar cambios</Text>
+          <TouchableOpacity style={styles.button} onPress={handleEditar} disabled={cargando}>
+            <Text style={styles.buttonText}>{cargando ? "Guardando…" : "Guardar cambios"}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -334,8 +284,9 @@ export default function CrudCategoriasScreen() {
           <TouchableOpacity
             style={[styles.button, { backgroundColor: "#c82333" }]}
             onPress={handleEliminar}
+            disabled={cargando}
           >
-            <Text style={styles.buttonText}>Eliminar</Text>
+            <Text style={styles.buttonText}>{cargando ? "Eliminando…" : "Eliminar"}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -352,7 +303,6 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#fff" },
 
   label: { color: "#ccc", marginTop: 12, marginBottom: 6 },
-  labelInline: { color: "#ccc", marginRight: 10 },
   input: {
     backgroundColor: "#0a1f44",
     color: "#fff",
@@ -366,8 +316,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 4,
   },
-
-  row: { flexDirection: "row", alignItems: "center", marginTop: 8 },
 
   button: {
     backgroundColor: "#0af",
