@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // 📂 src/api/transaccionesApi.js
 const API_URL = "https://api-lana-production.up.railway.app";
 
@@ -38,18 +39,23 @@ const buildTransaccionPayload = (tx = {}) => {
     fecha: tx.fecha ? toYYYYMMDD(tx.fecha) : toYYYYMMDD(),
   };
 };
+=======
+const API_URL = "https://api-lana-production.up.railway.app";
+>>>>>>> parent of 9fbe0795 (cambios)
 
-// 🔹 Obtener todas las transacciones
 export const obtenerTransacciones = async () => {
   return fetchJson(`${API_URL}/transacciones`);
 };
 
+<<<<<<< HEAD
 // 🔹 Obtener transacción por ID
 export const obtenerTransaccionPorId = async (id) => {
   return fetchJson(`${API_URL}/transacciones/${Number(id)}`);
 };
 
 // 🔹 Crear nueva transacción
+=======
+>>>>>>> parent of 9fbe0795 (cambios)
 export const crearTransaccion = async (transaccion) => {
   const payload = buildTransaccionPayload(transaccion);
   return fetchJson(`${API_URL}/transacciones`, {
@@ -57,9 +63,18 @@ export const crearTransaccion = async (transaccion) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+<<<<<<< HEAD
+=======
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw errorData;
+  }
+
+  return await response.json();
+>>>>>>> parent of 9fbe0795 (cambios)
 };
 
-// 🔹 Actualizar transacción
 export const actualizarTransaccion = async (id, transaccion) => {
   const payload = buildTransaccionPayload(transaccion);
   return fetchJson(`${API_URL}/transacciones/${Number(id)}`, {
@@ -67,11 +82,30 @@ export const actualizarTransaccion = async (id, transaccion) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+<<<<<<< HEAD
+=======
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw errorData;
+  }
+
+  return await response.json();
+>>>>>>> parent of 9fbe0795 (cambios)
 };
 
-// 🔹 Eliminar transacción
 export const eliminarTransaccion = async (id) => {
   return fetchJson(`${API_URL}/transacciones/${Number(id)}`, {
     method: "DELETE",
   });
+<<<<<<< HEAD
+=======
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw errorData;
+  }
+
+  return await response.json();
+>>>>>>> parent of 9fbe0795 (cambios)
 };

@@ -1,4 +1,3 @@
-// 📂 src/screens/CrudCategoriasScreen.js
 import React, { useState } from "react";
 import {
   View,
@@ -7,23 +6,16 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+<<<<<<< HEAD
   FlatList,
+=======
+>>>>>>> parent of 9fbe0795 (cambios)
 } from "react-native";
-import { Picker as RNPicker } from "@react-native-picker/picker";
-import {
-  listarCategorias,
-  obtenerCategoriaPorId,
-  crearCategoria,
-  actualizarCategoria,
-  eliminarCategoria,
-} from "../api/categoriasApi";
+import { crearCategoria } from "../api/categoriasApi";
 
-export default function CrudCategoriasScreen() {
-  const [modo, setModo] = useState("crear"); // crear | listar | editar | eliminar
-
-  // Campos comunes
-  const [id, setId] = useState("");
+export default function CrearCategoria({ navigation }) {
   const [nombre, setNombre] = useState("");
+<<<<<<< HEAD
   const [tipo, setTipo] = useState("egreso");
   const [categoriaPadreId, setCategoriaPadreId] = useState("");
 
@@ -42,12 +34,16 @@ export default function CrudCategoriasScreen() {
   const safeNumber = (v) => (v !== "" && v != null ? Number(v) : undefined);
 
   // ------ Crear ------
+=======
+
+>>>>>>> parent of 9fbe0795 (cambios)
   const handleCrear = async () => {
     if (!nombre.trim()) {
-      Alert.alert("Campos requeridos", "El nombre es obligatorio.");
+      Alert.alert("Error", "El nombre no puede estar vacío");
       return;
     }
     try {
+<<<<<<< HEAD
       await crearCategoria({
         nombre: nombre.trim(),
         tipo: String(tipo).toLowerCase(),
@@ -290,11 +286,34 @@ export default function CrudCategoriasScreen() {
           </TouchableOpacity>
         </View>
       )}
+=======
+      await crearCategoria({ nombre: nombre.trim() });
+      Alert.alert("Éxito", "Categoría creada");
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert("Error", "No se pudo crear la categoría");
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Crear Categoría</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Nombre de la categoría"
+        value={nombre}
+        onChangeText={setNombre}
+      />
+      <TouchableOpacity style={styles.button} onPress={handleCrear}>
+        <Text style={styles.buttonText}>Crear</Text>
+      </TouchableOpacity>
+>>>>>>> parent of 9fbe0795 (cambios)
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+<<<<<<< HEAD
   container: { flex: 1, backgroundColor: "#121212", padding: 16 },
   tabs: { flexDirection: "row", marginBottom: 16, gap: 8 },
   tab: { flex: 1, backgroundColor: "#1f1f1f", padding: 10, borderRadius: 8 },
@@ -303,13 +322,19 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#fff" },
 
   label: { color: "#ccc", marginTop: 12, marginBottom: 6 },
+=======
+  container: { flex: 1, backgroundColor: "#121212", padding: 20, justifyContent: "center" },
+  title: { fontSize: 26, color: "#fff", fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+>>>>>>> parent of 9fbe0795 (cambios)
   input: {
     backgroundColor: "#0a1f44",
     color: "#fff",
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
+<<<<<<< HEAD
   picker: {
     backgroundColor: "#0a1f44",
     color: "#fff",
@@ -317,27 +342,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
+=======
+>>>>>>> parent of 9fbe0795 (cambios)
   button: {
     backgroundColor: "#0af",
+    paddingVertical: 15,
     borderRadius: 10,
-    paddingVertical: 14,
-    marginTop: 16,
+    marginTop: 10,
   },
-  buttonText: { color: "#fff", textAlign: "center", fontWeight: "bold", fontSize: 16 },
-
-  buttonGhost: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#0af",
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  buttonGhostText: { color: "#0af", textAlign: "center", fontWeight: "bold" },
-
-  subTitle: { color: "#eee", fontSize: 18, fontWeight: "bold", marginTop: 12, marginBottom: 8 },
-
-  item: { backgroundColor: "#1b1b1b", padding: 12, borderRadius: 8, marginBottom: 8 },
-  itemText: { color: "#fff", fontWeight: "600" },
-  itemSub: { color: "#aaa", marginTop: 2 },
+  buttonText: { color: "#fff", fontWeight: "bold", textAlign: "center", fontSize: 18 },
 });

@@ -1,4 +1,5 @@
 // 📂 src/api/categoriasApi.js
+<<<<<<< HEAD
 const API_ORIGIN = "https://api-lana-production.up.railway.app"; // <-- tu host
 const API_PREFIX = ""; // ej. "/api" si en main.py usaste include_router(..., prefix="/api")
 const API_URL = `${API_ORIGIN}${API_PREFIX}`;
@@ -125,3 +126,22 @@ export const eliminarCategoria = async (id, token) =>
     method: "DELETE",
     headers: { ...authHeaders(token) },
   });
+=======
+const BASE_URL = "https://tu-api-url.com"; // Cambia por tu URL
+
+export async function obtenerCategorias() {
+  const response = await fetch(`${BASE_URL}/categorias`);
+  if (!response.ok) throw new Error("Error al obtener categorías");
+  return await response.json();
+}
+
+export async function crearCategoria(nombre) {
+  const response = await fetch(`${BASE_URL}/categorias`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nombre }),
+  });
+  if (!response.ok) throw new Error("Error al crear categoría");
+  return await response.json();
+}
+>>>>>>> parent of 9fbe0795 (cambios)
